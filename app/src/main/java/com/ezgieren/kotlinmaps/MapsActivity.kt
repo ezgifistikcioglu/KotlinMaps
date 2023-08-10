@@ -10,6 +10,7 @@ import android.location.LocationManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -150,4 +151,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
             Renderer.LEGACY -> Log.d("MapsDemo", "The legacy version of the renderer is used.")
         }
     }
+
+    fun save(view: View){}
+    fun delete(view: View){}
 }
