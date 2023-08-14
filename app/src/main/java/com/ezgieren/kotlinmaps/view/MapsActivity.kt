@@ -48,6 +48,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
     private var selectedLatLng: Double? = null
     private var selectedLatLong: Double? = null
     val compositeDisposable = CompositeDisposable()
+    var placeFromMain : Place? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,23 +70,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
         selectedLatLng = 0.0
         selectedLatLong = 0.0
 
-        database = Room.databaseBuilder(applicationContext, PlaceDatabase::class.java,"Places").build()
+        database =
+            Room.databaseBuilder(applicationContext, PlaceDatabase::class.java, "Places").build()
 
         placeDao = database.placeDao()
+        binding.idSaveButton.isEnabled = false
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         //To provide the connection between Map and Listener
         mMap.setOnMapLongClickListener(this)
-        // Changing Map
-        // val eiffel = LatLng(48.8584, 2.2945)
-        // mMap.addMarker(MarkerOptions().position(eiffel).title("Eiffel Tower"))
-        // mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(eiffel,15f))
 
-        locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
-        locationListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
+        val intent = intent
+        val info = intent.getStringExtra("info")
+        if (info == "new"){
+            binding.idSaveButton.visibility = View.VISIBLE
+            binding.idDeleteButton.visibility = View.GONE
+
+            //Casting
+            locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
+            locationListener = LocationListener { location ->
                 trackBoolean = sharedPreferences.getBoolean("trackBoolean", false)
                 if (!trackBoolean!!) {
                     // Last location
@@ -94,26 +99,40 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
                     sharedPreferences.edit().putBoolean("trackBoolean", true).apply()
                 }
             }
-        }
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-        ) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
             ) {
-                Snackbar.make(binding.root,
-                    "Permission needed for location",
-                    Snackbar.LENGTH_INDEFINITE).setAction("Give Permission") {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION)
+                ) {
+                    Snackbar.make(binding.root,
+                        "Permission needed for location",
+                        Snackbar.LENGTH_INDEFINITE).setAction("Give Permission") {
+                        //request Permission
+                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }.show()
+                } else {
                     //request Permission
                     permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                }.show()
+                }
             } else {
-                //request Permission
-                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                // permission granted
+                lastLocationWithPermission()
             }
-        } else {
-            // permission granted
-            lastLocationWithPermission()
+        }else{
+            // If this application contains markers, etc. left over from before, we must clean it.
+            mMap.clear()
+            placeFromMain = intent.getSerializableExtra("selectedPlace") as? Place
+
+            placeFromMain?.let {
+                val latLng = LatLng(it.latitude, it.longitude)
+                mMap.addMarker(MarkerOptions().position(latLng).title(it.name))
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,15f))
+
+                binding.idETPlaceText.setText(it.name)
+                binding.idSaveButton.visibility = View.GONE
+                binding.idDeleteButton.visibility = View.VISIBLE
+            }
         }
     }
 
@@ -159,6 +178,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
         mMap.addMarker(MarkerOptions().position(p0))
         selectedLatLng = p0.latitude
         selectedLatLong = p0.longitude
+        binding.idSaveButton.isEnabled = true
     }
 
     override fun onMapsSdkInitialized(renderer: Renderer) {
@@ -172,21 +192,31 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
         if (selectedLatLng != null && selectedLatLong != null) {
             val place =
                 Place(binding.idETPlaceText.text.toString(), selectedLatLng!!, selectedLatLong!!)
-        compositeDisposable.add(
-            placeDao.insert(place)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(this::handleResponse)
-        )
+            compositeDisposable.add(
+                placeDao.insert(place)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(this::handleResponse)
+            )
         }
     }
 
-    private fun handleResponse(){
+    private fun handleResponse() {
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         startActivity(intent)
     }
-    fun delete(view: View) {}
+
+    fun delete(view: View) {
+        placeFromMain?.let {
+            compositeDisposable.add(
+                placeDao.delete(it)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(this::handleResponse)
+            )
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
