@@ -1,10 +1,11 @@
-package com.ezgieren.kotlinmaps
+package com.ezgieren.kotlinmaps.view
 
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import com.ezgieren.kotlinmaps.R
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

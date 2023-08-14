@@ -1,4 +1,4 @@
-package com.ezgieren.kotlinmaps
+package com.ezgieren.kotlinmaps.view
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -16,10 +16,15 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.room.Room
+import com.ezgieren.kotlinmaps.R
 
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.ezgieren.kotlinmaps.databinding.ActivityMapsBinding
+import com.ezgieren.kotlinmaps.model.Place
+import com.ezgieren.kotlinmaps.roomdb.PlaceDao
+import com.ezgieren.kotlinmaps.roomdb.PlaceDatabase
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.MapsInitializer.Renderer
 import com.google.android.material.snackbar.Snackbar
@@ -33,6 +38,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
     private lateinit var locationListener: LocationListener
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var database: PlaceDatabase
+    private lateinit var placeDao: PlaceDao
     private var trackBoolean: Boolean? = null
     private var selectedLatLng: Double? = null
     private var selectedLatLong: Double? = null
@@ -56,6 +63,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
 
         selectedLatLng = 0.0
         selectedLatLong = 0.0
+
+        database = Room.databaseBuilder(applicationContext, PlaceDatabase::class.java,"Places").build()
+
+        placeDao = database.placeDao()
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
@@ -152,6 +163,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
         }
     }
 
-    fun save(view: View){}
-    fun delete(view: View){}
+    fun save(view: View) {
+        if (selectedLatLng != null && selectedLatLong != null) {
+            val place =
+                Place(binding.idETPlaceText.text.toString(), selectedLatLng!!, selectedLatLong!!)
+            placeDao.insert(place)
+        }
+    }
+
+    fun delete(view: View) {}
 }
