@@ -2,6 +2,7 @@ package com.ezgieren.kotlinmaps.view
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Location
@@ -28,6 +29,9 @@ import com.ezgieren.kotlinmaps.roomdb.PlaceDatabase
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.MapsInitializer.Renderer
 import com.google.android.material.snackbar.Snackbar
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.schedulers.Schedulers
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializedCallback,
     GoogleMap.OnMapLongClickListener {
@@ -43,6 +47,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
     private var trackBoolean: Boolean? = null
     private var selectedLatLng: Double? = null
     private var selectedLatLong: Double? = null
+    val compositeDisposable = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -167,9 +172,24 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMapsSdkInitializ
         if (selectedLatLng != null && selectedLatLong != null) {
             val place =
                 Place(binding.idETPlaceText.text.toString(), selectedLatLng!!, selectedLatLong!!)
+        compositeDisposable.add(
             placeDao.insert(place)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(this::handleResponse)
+        )
         }
     }
 
+    private fun handleResponse(){
+        val intent = Intent(this, MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        startActivity(intent)
+    }
     fun delete(view: View) {}
+
+    override fun onDestroy() {
+        super.onDestroy()
+        compositeDisposable.clear()
+    }
 }
